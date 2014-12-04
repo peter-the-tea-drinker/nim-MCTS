@@ -111,7 +111,7 @@ method GetMoves*(state: OthelloState):seq[Move]{.inline.} =
       result.setLen(result.len+1)
       result[result.len-1]=t
 
-method GetResult*(state: OthelloState, playerjm:int,db:bool):float{.inline.}=
+method GetResult*(state: OthelloState, playerjm:int):float{.inline.}=
   ## Get the game result from the viewpoint of playerjm.
   var jmcount = 0
   var notjmcount = 0
@@ -120,9 +120,6 @@ method GetResult*(state: OthelloState, playerjm:int,db:bool):float{.inline.}=
       jmcount += 1
     elif (state.board[t.x][t.y] == 3 - playerjm):
       notjmcount += 1
-  if db==True:
-    echo(jmcount)
-    echo(notjmcount)
   if jmcount > notjmcount:
     return 1.0
   elif notjmcount > jmcount:
@@ -130,8 +127,15 @@ method GetResult*(state: OthelloState, playerjm:int,db:bool):float{.inline.}=
   else:
     return 0.5 # draw
 
-method GetResult*(state: OthelloState, playerjm:int):float{.inline.}=
-  return GetResult(state, playerjm, False)
+method GetPrediction(state: OthelloState, playerjm:int):Prediction{.inline.}=
+  var jmcount = 0.0
+  var notjmcount = 0.0
+  for t in state.all_squares:
+    if (state.board[t.x][t.y] == playerjm):
+      jmcount += 1.0
+    elif (state.board[t.x][t.y] == 3 - playerjm):
+      notjmcount += 1.0
+  return (jmcount/(jmcount+notjmcount), 0.8*(jmcount+notjmcount)/(float)(state.all_squares.len))
 
 method toString*(state: OthelloState): string{.inline.} =
   result = ""
@@ -142,5 +146,4 @@ method toString*(state: OthelloState): string{.inline.} =
 
 var state = InitState(8)
 let nill_move:Move = (-1,-1)
-PlayGames(state,nill_move,400,0.1,400,1.0,1,True)
-PlayGames(state,nill_move,40,0.1,40,1.0,10,False)
+StarVsNostar(state,nill_move,5,1.0,1000,1.0,True)

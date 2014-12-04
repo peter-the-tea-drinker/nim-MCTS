@@ -1,5 +1,6 @@
 import sequtils
 import nimMCTS
+import htmlgen
 
 type
   OXOState* = object of TState
@@ -13,7 +14,7 @@ type
     y: int
     z: int
 
-const winning_rows:seq[Row] = @[(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
+var winning_rows:seq[Row] = @[(0,1,2),(3,4,5),(6,7,8),(0,3,6),(1,4,7),(2,5,8),(0,4,8),(2,4,6)]
 
 proc InitState():OXOState{.inline.} =
   result.playerJustMoved = 2 # At the root pretend the player just moved is p2 - p1 has the first move
@@ -37,7 +38,6 @@ method DoMove*(state: var OXOState, move:Move){.inline.} =
     let x = row[0]
     let y = row[1]
     let z = row[2]
-    #echo(x,y,z)
     if (state.board[x]>0) and (state.board[x] == state.board[y]) and (state.board[y] == state.board[z]):
         state.winner=state.board[x]
 
@@ -64,7 +64,19 @@ method toString*(state: OXOState): string{.inline.} =
     if i mod 3 == 2:
       result = result & "\n"
 
+method toHTML(state: OXOState): string =
+  result = "<pre>"
+  for i in count_up(0,8):
+    if state.board[i]==0:
+      result = result & a(id=($i), $i)
+    else:
+      result = result & ".XO"[state.board[i]]
+    if i mod 3 == 2:
+      result = result & "<br>"
+  result = result & "</pre>"
+
 var state = InitState()
 let nill_move = -1
-echo(state.GetMoves())
-PlayGames(state,nill_move,1000,0.5,20000,0.5,2,True)
+PlayGames(state,nill_move,10,0.5,20000,0.5,2,True)
+
+
