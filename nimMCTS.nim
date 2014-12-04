@@ -36,6 +36,10 @@ import algorithm
 import math
 
 type
+  Prediction* = tuple
+    result: float
+    quality: float
+
   PNode[M] = ref Node[M]
 
   Node[M] = tuple
@@ -97,10 +101,16 @@ proc AddChild[M,T](node: var PNode[M], move:M, s:T):PNode[M]{.inline.} =
   node.childNodes.setLen(n+1)
   node.childNodes[n]=result
 
-
 proc Update[M](node: var Node[M], res, UCTK:float){.inline.} =
   node.visits += 1.0
   node.wins += res
+  let wins = node.wins + 1.0
+  let visits = node.visits + 2.0
+  node.score = wins/visits + UCTK*math.sqrt(2*(math.ln(visits)/visits))
+
+proc UpdateStar[M](node: var Node[M], res, weight, UCTK:float){.inline.} =
+  node.visits += weight
+  node.wins += res*weight
   let wins = node.wins + 1.0
   let visits = node.visits + 2.0
   node.score = wins/visits + UCTK*math.sqrt(2*(math.ln(visits)/visits))
@@ -136,14 +146,84 @@ proc UCT*[M,T](rootstate: T, itermax: int, UCTK:float,
             state.DoMove(m)
             node = AddChild(node, m, state) # add child and descend tree
             node.untriedMoves = state.GetMoves()
+
         # Rollout - this can often be made orders of magnitude quicker using a state.GetRandomMove() function
         var moves = state.GetMoves()
         while moves.len > 0: # while state is non-terminal
             state.DoMove(moves[math.random(moves.len)])
             moves = state.GetMoves()
+
         # Backpropagate
         while True: # backpropagate from the expanded node and work back to the root node
             Update(node[], state.GetResult(3-node.playerJustMoved), UCTK) # state is terminal. Update node with result from POV of node.playerJustMoved
+            if (node.parentNode==nil):
+              break
+            node = node.parentNode
+
+    algorithm.sort(a=rootnode.ChildNodes, cmp=UCTCmp, order = Descending)
+    result = rootnode.ChildNodes[0].move
+
+
+proc UCTstar*[M,T](rootstate: T, itermax: int, UCTK:float,
+               nill_move:M):M =
+    var parent : PNode[M]
+    parent = nil
+
+    var rootnode = InitNode(state = rootstate, move=nill_move, parent=parent)
+    rootnode.untriedMoves = rootstate.GetMoves()
+
+    for i in countup(1,itermax):
+        var node = rootnode
+        var state = rootstate.Clone()
+
+        # Select
+        while (node.untriedMoves.len==0)  and (node.childNodes.len > 0): # node is fully expanded and non-terminal
+            assert node != nil
+            assert node.childNodes.len > 0
+            node = UCTSelectChild(node)
+            assert (node.parentNode!=nil)
+            assert (node!=nil)
+            state.DoMove(node.move)
+
+        # Expand
+        if (node.untriedMoves.len > 0): # if we can expand (i.e. state/node is non-terminal)
+            let move_id = math.random(node.untriedMoves.len)
+            var m = node.untriedMoves[move_id]
+            state.DoMove(m)
+            node = AddChild(node, m, state) # add child and descend tree
+            node.untriedMoves = state.GetMoves()
+        # Rollout - this can often be made orders of magnitude quicker using a state.GetRandomMove() function
+        var moves = state.GetMoves()
+        var weight = 0.0
+        var wins = 0.0
+        while True: # while state is non-terminal
+          moves = state.GetMoves()
+          if moves.len == 0:
+            weight = 1.0
+            wins = state.GetResult(3-node.playerJustMoved)
+            break
+
+          # heuristic - is the game now at a predictable state?
+          let predicted = state.GetPrediction(3-node.playerJustMoved)
+          # how far should we search?
+          # maybe related to the state's wins. If rootnode has a high value,
+          # then we should probably not guess.
+          if predicted.quality > (0.1 * node.visits):
+            weight = predicted.quality
+            wins = predicted.result
+            break
+
+          state.DoMove(moves[math.random(moves.len)])
+
+        assert (0.0<=wins)
+        assert (1.0>=wins)
+        assert (0.0<=weight)
+        assert (1.0>=weight)
+
+        # Backpropagate
+        while True: # backpropagate from the expanded node and work back to the root node
+            UpdateStar(node[], wins, weight, UCTK) # state is terminal. Update node with result from POV of node.playerJustMoved
+            wins = weight-wins
             if (node.parentNode==nil):
               break
             node = node.parentNode
@@ -163,12 +243,45 @@ proc UCTPlayGame*[M,T](state: var T, nill_move:M, p1_it:int,UCTK1:float, p2_it:i
       if verbose:
         echo(state.to_string)
       moves = state.GetMoves()
+      if moves.len == 0:
+        break
 
   if state.GetResult(state.playerJustMoved) == 1.0:
       echo( "Player " & $(state.playerJustMoved) & " wins!")
   elif state.GetResult(3-state.playerJustMoved) == 1.0:
       echo( "Player " & $(3 - state.playerJustMoved) & " wins!")
   else: echo("Nobody wins!")
+
+import times
+proc StarVsNostar*[T,M](state:var T,nill_move:M,
+                     p1_it:int,UCTK1:float,
+                     p2_it:int,UCTK2:float,
+                     verbose:bool) =
+  var moves = state.GetMoves()
+  var t1 = 0.0
+  var t2 = 0.0
+  while moves.len > 0:
+      var m: M
+      var t0 = cpuTime()
+      if state.playerJustMoved == 1:
+          m = UCT(state, p2_it, UCTK2, nill_move)
+          t2 += cpuTime() -t0
+      else:
+          m = UCTstar(state, p1_it, UCTK1, nill_move)
+          t1 += cpuTime() -t0
+      state.DoMove(m)
+      if verbose:
+        echo(state.to_string)
+      moves = state.GetMoves()
+      if moves.len == 0:
+        break
+
+  if state.GetResult(state.playerJustMoved) == 1:
+      echo( "Player " & $(state.playerJustMoved) & " wins!")
+  elif state.GetResult(3-state.playerJustMoved) == 1:
+      echo( "Player " & $(3 - state.playerJustMoved) & " wins!")
+  else: echo("Nobody wins!")
+  echo("P1 time: ",t1," P2 time: ",t2)
 
 proc PlayGames*[T,M](state:var T,nill_move:M,
                      p1_it:int,UCTK1:float,

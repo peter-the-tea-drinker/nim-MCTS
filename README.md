@@ -20,3 +20,16 @@ UCTK is some constant, which will tune exploration vs exploitation. A higher con
 favor more exploration (approaching infinity, it will pick the least visited node), while a zero value will
 simply pick the current best node.
 
+I also added an option to run a heuristic search. TODO - read the literature, and find a good way to do this.
+
+Using a very simple heuristic, I get a player using 5 search iterations to beat one using 1000 iterations in Othello.
+Which is a pretty good speedup.
+
+Another speedup would be Zobrist hashing. This basically hashes seen nodes (since many games have multiple paths to
+the same state). Zobrist hashing using XORing of positions, so the entire hash need not be recalculated every move
+(when you move a piece, you XOR it out of its current position, then XOR it into the next position).
+
+To run Othello:
+
+   nimrod compile --run -d:release --p:../ Othello.nim
+
