@@ -1,6 +1,6 @@
 The MIT License (MIT)
 
-Copyright (c) 2014 Peter
+Copyright (c) 2014 Peter James Row
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
@@ -20,3 +20,13 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
+##########################################################################################################
+
+Based on UCT Monte Carlo Tree Search algorithm in Python 2.7.
+
+Written by Peter Cowling, Ed Powley, Daniel Whitehouse (University of York, UK) September 2012.
+
+Licence is granted to freely use and distribute for any sensible/legal purpose so long as this comment
+remains in any distributed code.
+
+For more information about Monte Carlo Tree Search check out our web site at www.mcts.ai
